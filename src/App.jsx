@@ -1214,9 +1214,41 @@ function PaymentPage({ navTo, goBack }) {
 
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('landing');
-  const [history, setHistory] = useState(['landing']);
-  const [taskMeta, setTaskMeta] = useState({ key: 'data_cat', locked: false });
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem('currentPage');
+    const user = localStorage.getItem('currentUser');
+    if (saved && user) return saved;
+    if (user) return 'dashboard';
+    return 'landing';
+  });
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('navHistory'));
+      if (saved && saved.length > 0) return saved;
+    } catch (_) {}
+    const user = localStorage.getItem('currentUser');
+    return user ? ['dashboard'] : ['landing'];
+  });
+  const [taskMeta, setTaskMeta] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('taskMeta'));
+      if (saved) return saved;
+    } catch (_) {}
+    return { key: 'data_cat', locked: false };
+  });
+
+  // Persist state to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem('currentPage', currentPage);
+  }, [currentPage]);
+
+  useEffect(() => {
+    localStorage.setItem('navHistory', JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem('taskMeta', JSON.stringify(taskMeta));
+  }, [taskMeta]);
 
   const navTo = (page, taskKey, isLocked) => {
     window.scrollTo(0, 0);
