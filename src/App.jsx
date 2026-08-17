@@ -511,7 +511,21 @@ function TaskCompletePage({ navTo }) {
 function DashboardPage({ navTo }) {
   const [userName, setUserName] = useState('ROWAN');
   const [balance, setBalance] = useState('4.80');
-  
+  const [isUpgraded, setIsUpgraded] = useState(false);
+  const [hasCompletedFreeTask, setHasCompletedFreeTask] = useState(false);
+  const [planName, setPlanName] = useState('Free Account');
+
+  // Dummy mock data for rolling live withdrawals
+  const MOCK_WITHDRAWALS = [
+    { name: 'M', phone: '+254722****678', amount: '$29.60', time: '8m ago' },
+    { name: 'K', phone: '+254711****143', amount: '$42.10', time: '2m ago' },
+    { name: 'J', phone: '+254790****882', amount: '$15.30', time: 'Just now' },
+    { name: 'S', phone: '+254700****200', amount: '$110.00', time: '12m ago' },
+    { name: 'E', phone: '+254725****992', amount: '$21.75', time: '1m ago' },
+  ];
+  const [currentWIndex, setCurrentWIndex] = useState(0);
+  const [fadeKey, setFadeKey] = useState(0);
+
   useEffect(() => {
     const active = JSON.parse(localStorage.getItem('currentUser'));
     if (active && active.name) {
@@ -520,7 +534,29 @@ function DashboardPage({ navTo }) {
     if (active && active.balance !== undefined) {
       setBalance(Number(active.balance).toFixed(2));
     }
+    if (active) {
+      setIsUpgraded(!!active.upgraded);
+      setHasCompletedFreeTask(!!active.firstTaskCompleted);
+      if (active.plan) setPlanName(active.plan);
+    }
+
+    const interval = setInterval(() => {
+      setFadeKey(prev => prev + 1);
+      setCurrentWIndex(prev => (prev + 1) % MOCK_WITHDRAWALS.length);
+    }, 3500);
+    return () => clearInterval(interval);
   }, []);
+
+  const activeWithdrawal = MOCK_WITHDRAWALS[currentWIndex];
+
+  const handleTaskClick = (taskKey) => {
+    if (hasCompletedFreeTask && !isUpgraded) {
+      // Force payment wall 
+      navTo('payment');
+    } else {
+      navTo('do_task', taskKey, false);
+    }
+  };
 
   return (
     <div className="dashboard-wrapper">
@@ -570,15 +606,15 @@ function DashboardPage({ navTo }) {
           <h3 className="section-title-small" style={{marginBottom: 0, display: 'flex', alignItems: 'center', gap: 6}}>🌏 Live Withdrawals</h3>
           <span className="live-badge">● LIVE</span>
         </div>
-        <div className="live-card mt-2">
-          <div className="live-avatar">M</div>
+        <div className="live-card mt-2 withdrawal-fade" key={fadeKey}>
+          <div className="live-avatar">{activeWithdrawal.name}</div>
           <div className="live-info">
-             <div className="live-phone" style={{fontSize: '13px', fontWeight: 700}}>+254722****678</div>
+             <div className="live-phone" style={{fontSize: '13px', fontWeight: 700}}>{activeWithdrawal.phone}</div>
              <div className="live-status" style={{fontSize: '11px', color: '#6b7280'}}>✓ Withdrawal Successful</div>
           </div>
           <div className="live-amount-info" style={{marginLeft: 'auto', textAlign:'right'}}>
-             <div className="live-amount text-green" style={{fontSize: '13px', fontWeight: 800}}>$29.60</div>
-             <div className="live-time" style={{fontSize: '11px', color: '#6b7280'}}>8m ago</div>
+             <div className="live-amount text-green" style={{fontSize: '13px', fontWeight: 800}}>{activeWithdrawal.amount}</div>
+             <div className="live-time" style={{fontSize: '11px', color: '#6b7280'}}>{activeWithdrawal.time}</div>
           </div>
         </div>
       </div>
@@ -586,69 +622,112 @@ function DashboardPage({ navTo }) {
       <div className="account-type-card mb-4">
         <div className="account-info">
            <div className="balance-label" style={{fontSize: '11px', color: '#6b7280', fontWeight: 600, marginBottom: '2px'}}>Account Type</div>
-           <div className="account-value" style={{fontSize: '14px', fontWeight: 800}}><span className="tag-free">FREE</span> Free Account</div>
+           <div className="account-value" style={{fontSize: '14px', fontWeight: 800}}>
+            {!isUpgraded ? <span className="tag-free">FREE</span> : <span className="tag-free" style={{background:'#ff7a00'}}>PREMIUM</span>} 
+            {' '}{planName}
+          </div>
         </div>
-        <button className="btn-upgrade-orange" onClick={() => navTo('payment')}>↑ Upgrade</button>
+        <button className="btn-upgrade-orange" onClick={() => navTo('payment')}>{isUpgraded ? 'View Plan' : '↑ Upgrade'}</button>
       </div>
 
       <div className="dash-content-new mt-4">
         <h3 className="section-title-small mb-3">📋 Start Earning</h3>
         
         <div className="job-grid-2col">
-          <div className="job-card-new available">
+          <div className={`job-card-new ${hasCompletedFreeTask && !isUpgraded ? 'locked' : 'available'}`}>
             <h4>Data Categorization</h4>
             <p>Organize data into structured groups</p>
             <div className="job-price text-green">$1.85 - 2.50/task</div>
-            <button className="btn-job-green-full" onClick={() => navTo('do_task', 'data_cat', false)}>Start Earning →</button>
+            <button 
+              className={hasCompletedFreeTask && !isUpgraded ? 'btn-job-faded' : 'btn-job-green-full'} 
+              onClick={() => handleTaskClick('data_cat')}
+            >
+              {hasCompletedFreeTask && !isUpgraded ? '🔒 Upgrade to Unlock' : 'Start Earning →'}
+            </button>
           </div>
           
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Pattern Recognition</h4>
             <p>Identify data patterns in datasets</p>
             <div className="job-price text-green">$2.70 - 3.65/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'pattern', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('pattern')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
 
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Sentence Arrangement</h4>
             <p>Arrange text in logical order</p>
             <div className="job-price text-green">$1.55 - 2.09/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'sentence', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('sentence')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
           
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Refer & Earn</h4>
             <p>Invite friends for bonus rewards</p>
             <div className="job-price text-green">$2.00 - 2.70/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'refer', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('refer')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
 
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Image Labeling</h4>
             <p>Label images for ML training</p>
             <div className="job-price text-green">$1.60 - 2.16/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'image', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('image')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
 
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Sentiment Analysis</h4>
             <p>Classify text sentiment</p>
             <div className="job-price text-green">$1.95 - 2.63/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'sentiment', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('sentiment')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
           
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Code Review</h4>
             <p>Evaluate code quality</p>
             <div className="job-price text-green">$2.10 - 3.00/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'code', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('code')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
           
-          <div className="job-card-new locked">
+          <div className={`job-card-new ${isUpgraded ? 'available' : 'locked'}`}>
             <h4>Translation Task</h4>
             <p>Translate content accurately</p>
             <div className="job-price text-green">$1.80 - 2.45/task</div>
-            <button className="btn-job-faded" onClick={() => navTo('do_task', 'translation', true)}>🔒 Try Task</button>
+            <button 
+              className={isUpgraded ? 'btn-job-green-full' : 'btn-job-faded'} 
+              onClick={() => handleTaskClick('translation')}
+            >
+              {isUpgraded ? 'Start Earning →' : '🔒 Upgrade to Unlock'}
+            </button>
           </div>
         </div>
       </div>
