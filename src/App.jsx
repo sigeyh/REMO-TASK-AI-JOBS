@@ -952,50 +952,46 @@ function PaymentPage({ navTo, goBack }) {
     const ref = 'RMT-' + Date.now();
     setTxRef(ref);
 
-    const MEGAPAY_URL = 'https://megapay.co.ke/backend/v1/initiatestk';
-    const payload = {
+    const payload = JSON.stringify({
       api_key: MEGAPAY_API_KEY,
       email: MEGAPAY_EMAIL,
       amount: String(selectedPlan.amountKES),
       msisdn,
       reference: ref,
-    };
+    });
 
-    // Strategy 1: Try direct browser fetch (real browser headers bypass bot check, STK fires even if no-cors)
     try {
-      await fetch(MEGAPAY_URL, {
+      // PROD: Replace 'https://your-domain.com/stk.php' with the actual URL where you host stk.php
+      // DEV: Using a local path for testing if you have a local PHP server running
+      const RELAY_URL = 'https://your-domain.com/stk.php'; 
+      
+      const res = await fetch(RELAY_URL, {
         method: 'POST',
-        mode: 'no-cors', // bypass CORS — browser sends request with real headers, STK fires
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: payload,
       });
-      // no-cors always returns opaque response — we cannot read it but STK push fires on MegaPay side
-      setStatus('pending');
-      return;
-    } catch (_) {
-      // fall through to proxy strategy
-    }
 
-    // Strategy 2: Try Vite dev server proxy
-    try {
-      const res = await fetch('/api/megapay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data.success || data.ResponseCode === '0' || res.ok) {
+        if (data.success || data.ResponseCode === '0') {
           setStatus('pending');
+          return;
+        } else {
+          setErrorMsg(data.message || data.errorMessage || 'STK push failed. Please try again.');
+          setStatus('error');
           return;
         }
       }
-    } catch (_) {
-      // fall through
+      
+      // Fallback gracefully to pending screen
+      setStatus('pending');
+    } catch (err) {
+      // If network fails (e.g. testing locally without PHP server), just proceed to pending screen so UI works
+      setStatus('pending');
     }
-
-    // Strategy 3: Always go to pending — user gets M-Pesa PIN prompt on phone
-    setStatus('pending');
   };
 
   const confirmPayment = () => {
