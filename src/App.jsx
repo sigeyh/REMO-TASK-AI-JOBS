@@ -961,9 +961,8 @@ function PaymentPage({ navTo, goBack }) {
     });
 
     try {
-      // PROD: Replace 'https://your-domain.com/stk.php' with the actual URL where you host stk.php
-      // DEV: Using a local path for testing if you have a local PHP server running
-      const RELAY_URL = 'https://your-domain.com/stk.php'; 
+      // PROD & DEV: Using Vercel Serverless Function
+      const RELAY_URL = '/api/stk'; 
       
       const res = await fetch(RELAY_URL, {
         method: 'POST',
